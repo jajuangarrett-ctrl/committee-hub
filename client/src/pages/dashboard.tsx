@@ -1,12 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useState, useMemo } from "react";
 import type { Committee, Member, Interest, Assignment } from "@shared/schema";
+import { useLocalData } from "@/hooks/use-local-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,14 +14,14 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell, 
 import {
   Users, Plus, Trash2, ArrowRight, UserPlus, Building2,
   Mail, Clock, MessageSquare, X, Edit2, Check, Search,
-  ChevronDown, ChevronUp, LayoutDashboard, UserCheck, Palette
+  ChevronDown, ChevronUp, LayoutDashboard, UserCheck
 } from "lucide-react";
 import { PerplexityAttribution } from "@/components/PerplexityAttribution";
 
-const CHART_COLORS = ["#20808D", "#A84B2F", "#1B474D", "#944454", "#FFC553", "#848456", "#6E522B", "#BCE2E7"];
-
 export default function Dashboard() {
   const { toast } = useToast();
+  const data = useLocalData();
+
   const [activeTab, setActiveTab] = useState("overview");
   const [searchTerm, setSearchTerm] = useState("");
   const [addCommitteeName, setAddCommitteeName] = useState("");
@@ -39,67 +38,7 @@ export default function Dashboard() {
   const [assignCommitteeId, setAssignCommitteeId] = useState<string>("");
   const [expandedCommittee, setExpandedCommittee] = useState<number | null>(null);
 
-  // Seed data on mount
-  useEffect(() => {
-    apiRequest("POST", "/api/seed").catch(() => {});
-  }, []);
-
-  const { data: committees = [] } = useQuery<Committee[]>({ queryKey: ["/api/committees"] });
-  const { data: members = [] } = useQuery<Member[]>({ queryKey: ["/api/members"] });
-  const { data: interests = [] } = useQuery<Interest[]>({ queryKey: ["/api/interests"] });
-  const { data: assignments = [] } = useQuery<Assignment[]>({ queryKey: ["/api/assignments"] });
-
-  const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/committees"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/members"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/interests"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/assignments"] });
-  };
-
-  const createCommittee = useMutation({
-    mutationFn: (data: { name: string; color: string }) => apiRequest("POST", "/api/committees", data),
-    onSuccess: () => { invalidateAll(); setAddCommitteeOpen(false); setAddCommitteeName(""); toast({ title: "Committee created" }); },
-  });
-
-  const updateCommittee = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: { name?: string; color?: string } }) => apiRequest("PATCH", `/api/committees/${id}`, data),
-    onSuccess: () => { invalidateAll(); setEditingCommittee(null); },
-  });
-
-  const deleteCommittee = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/committees/${id}`),
-    onSuccess: () => { invalidateAll(); toast({ title: "Committee deleted" }); },
-  });
-
-  const createMember = useMutation({
-    mutationFn: (data: { name: string; email: string; timeRating: number; comments: string }) => apiRequest("POST", "/api/members", data),
-    onSuccess: () => { invalidateAll(); setAddMemberOpen(false); setNewMemberName(""); setNewMemberEmail(""); toast({ title: "Member added" }); },
-  });
-
-  const deleteMember = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/members/${id}`),
-    onSuccess: () => { invalidateAll(); toast({ title: "Member removed" }); },
-  });
-
-  const createAssignment = useMutation({
-    mutationFn: (data: { memberId: number; committeeId: number }) => apiRequest("POST", "/api/assignments", data),
-    onSuccess: () => { invalidateAll(); toast({ title: "Member assigned" }); },
-  });
-
-  const deleteAssignment = useMutation({
-    mutationFn: (data: { memberId: number; committeeId: number }) => apiRequest("DELETE", "/api/assignments", { ...data }),
-    onSuccess: () => { invalidateAll(); toast({ title: "Assignment removed" }); },
-  });
-
-  const createInterest = useMutation({
-    mutationFn: (data: { memberId: number; committeeId: number }) => apiRequest("POST", "/api/interests", data),
-    onSuccess: () => invalidateAll(),
-  });
-
-  const deleteInterest = useMutation({
-    mutationFn: (data: { memberId: number; committeeId: number }) => apiRequest("DELETE", "/api/interests", { ...data }),
-    onSuccess: () => invalidateAll(),
-  });
+  const { committees, members, interests, assignments } = data;
 
   // Derived data
   const interestCountByCommittee = useMemo(() => {
@@ -233,7 +172,6 @@ export default function Dashboard() {
           {/* OVERVIEW TAB */}
           <TabsContent value="overview" className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
-              {/* Bar Chart: Interest by Committee */}
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-semibold">Interest by Committee</CardTitle>
@@ -258,7 +196,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              {/* Pie Chart: Interest Distribution */}
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-semibold">Interest Distribution</CardTitle>
@@ -292,7 +229,6 @@ export default function Dashboard() {
               </Card>
             </div>
 
-            {/* Assignments vs Interest comparison */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold">Assigned vs Interested</CardTitle>
@@ -337,15 +273,15 @@ export default function Dashboard() {
                               value={editingCommitteeName}
                               onChange={(e) => setEditingCommitteeName(e.target.value)}
                               className="h-8 w-64"
-                              data-testid={`input-edit-committee-${committee.id}`}
                             />
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => {
-                                updateCommittee.mutate({ id: committee.id, data: { name: editingCommitteeName } });
+                                data.updateCommittee(committee.id, { name: editingCommitteeName });
+                                setEditingCommittee(null);
+                                toast({ title: "Committee renamed" });
                               }}
-                              data-testid={`button-save-committee-${committee.id}`}
                             >
                               <Check className="w-4 h-4" />
                             </Button>
@@ -358,25 +294,12 @@ export default function Dashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-3">
-                        <Badge variant="secondary" className="text-xs tabular-nums">
-                          {interestedMembers.length} interested
-                        </Badge>
-                        <Badge variant="outline" className="text-xs tabular-nums">
-                          {assignedMembers.length} assigned
-                        </Badge>
+                        <Badge variant="secondary" className="text-xs tabular-nums">{interestedMembers.length} interested</Badge>
+                        <Badge variant="outline" className="text-xs tabular-nums">{assignedMembers.length} assigned</Badge>
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0"
-                                onClick={() => {
-                                  setEditingCommittee(committee.id);
-                                  setEditingCommitteeName(committee.name);
-                                }}
-                                data-testid={`button-edit-committee-${committee.id}`}
-                              >
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingCommittee(committee.id); setEditingCommitteeName(committee.name); }}>
                                 <Edit2 className="w-3.5 h-3.5" />
                               </Button>
                             </TooltipTrigger>
@@ -384,13 +307,7 @@ export default function Dashboard() {
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                                onClick={() => deleteCommittee.mutate(committee.id)}
-                                data-testid={`button-delete-committee-${committee.id}`}
-                              >
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => { data.deleteCommittee(committee.id); toast({ title: "Committee deleted" }); }}>
                                 <Trash2 className="w-3.5 h-3.5" />
                               </Button>
                             </TooltipTrigger>
@@ -403,7 +320,6 @@ export default function Dashboard() {
 
                     {isExpanded && (
                       <div className="border-t px-4 pb-4 pt-3 space-y-4">
-                        {/* Interested Members */}
                         <div>
                           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Interested Members</h4>
                           {interestedMembers.length === 0 ? (
@@ -415,25 +331,13 @@ export default function Dashboard() {
                                 if (!member) return null;
                                 const isAssigned = assignedMembers.some((a) => a.memberId === member.id);
                                 return (
-                                  <div
-                                    key={interest.id}
-                                    className={`flex items-center gap-2 border rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                                      isAssigned ? "bg-primary/10 border-primary/30" : "bg-card hover:bg-accent/50"
-                                    }`}
-                                  >
+                                  <div key={interest.id} className={`flex items-center gap-2 border rounded-lg px-3 py-1.5 text-sm transition-colors ${isAssigned ? "bg-primary/10 border-primary/30" : "bg-card hover:bg-accent/50"}`}>
                                     <span className="font-medium">{member.name}</span>
-                                    <Badge variant="outline" className="text-[10px] h-4 px-1.5">
-                                      {member.timeRating}/10
-                                    </Badge>
+                                    <Badge variant="outline" className="text-[10px] h-4 px-1.5">{member.timeRating}/10</Badge>
                                     {isAssigned ? (
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="h-5 w-5 p-0 text-destructive"
-                                            onClick={() => deleteAssignment.mutate({ memberId: member.id, committeeId: committee.id })}
-                                          >
+                                          <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-destructive" onClick={() => { data.deleteAssignment(member.id, committee.id); toast({ title: "Assignment removed" }); }}>
                                             <X className="w-3 h-3" />
                                           </Button>
                                         </TooltipTrigger>
@@ -442,12 +346,7 @@ export default function Dashboard() {
                                     ) : (
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="h-5 w-5 p-0 text-primary"
-                                            onClick={() => createAssignment.mutate({ memberId: member.id, committeeId: committee.id })}
-                                          >
+                                          <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-primary" onClick={() => { data.createAssignment(member.id, committee.id); toast({ title: "Member assigned" }); }}>
                                             <ArrowRight className="w-3 h-3" />
                                           </Button>
                                         </TooltipTrigger>
@@ -461,7 +360,6 @@ export default function Dashboard() {
                           )}
                         </div>
 
-                        {/* Assigned Members */}
                         <div>
                           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Assigned Members</h4>
                           {assignedMembers.length === 0 ? (
@@ -475,12 +373,7 @@ export default function Dashboard() {
                                   <div key={assignment.id} className="flex items-center gap-2 border border-primary/30 bg-primary/10 rounded-lg px-3 py-1.5 text-sm">
                                     <UserCheck className="w-3.5 h-3.5 text-primary" />
                                     <span className="font-medium">{member.name}</span>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-5 w-5 p-0 text-destructive"
-                                      onClick={() => deleteAssignment.mutate({ memberId: member.id, committeeId: committee.id })}
-                                    >
+                                    <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-destructive" onClick={() => { data.deleteAssignment(member.id, committee.id); toast({ title: "Assignment removed" }); }}>
                                       <X className="w-3 h-3" />
                                     </Button>
                                   </div>
@@ -502,13 +395,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-3 mb-2">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search members..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 h-9"
-                  data-testid="input-search-members"
-                />
+                <Input placeholder="Search members..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 h-9" data-testid="input-search-members" />
               </div>
             </div>
 
@@ -531,11 +418,7 @@ export default function Dashboard() {
                     return (
                       <tr key={member.id} className="border-b last:border-b-0 hover:bg-accent/30 transition-colors" data-testid={`row-member-${member.id}`}>
                         <td className="px-4 py-2.5">
-                          <button
-                            className="font-medium text-foreground hover:text-primary transition-colors text-left"
-                            onClick={() => setMemberDetailId(member.id)}
-                            data-testid={`button-member-detail-${member.id}`}
-                          >
+                          <button className="font-medium text-foreground hover:text-primary transition-colors text-left" onClick={() => setMemberDetailId(member.id)}>
                             {member.name}
                           </button>
                         </td>
@@ -543,13 +426,7 @@ export default function Dashboard() {
                         <td className="px-4 py-2.5 text-center">
                           <div className="inline-flex items-center gap-1.5">
                             <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div
-                                className="h-full rounded-full transition-all"
-                                style={{
-                                  width: `${member.timeRating * 10}%`,
-                                  backgroundColor: member.timeRating >= 8 ? "#437A22" : member.timeRating >= 5 ? "#d19900" : "#A13544",
-                                }}
-                              />
+                              <div className="h-full rounded-full transition-all" style={{ width: `${member.timeRating * 10}%`, backgroundColor: member.timeRating >= 8 ? "#437A22" : member.timeRating >= 5 ? "#d19900" : "#A13544" }} />
                             </div>
                             <span className="text-xs tabular-nums text-muted-foreground">{member.timeRating}</span>
                           </div>
@@ -557,10 +434,7 @@ export default function Dashboard() {
                         <td className="px-4 py-2.5">
                           <div className="flex flex-wrap gap-1">
                             {memberInterests.map((interest) => (
-                              <div
-                                key={interest.id}
-                                className="inline-flex items-center gap-1 bg-muted/60 rounded px-1.5 py-0.5 text-[10px]"
-                              >
+                              <div key={interest.id} className="inline-flex items-center gap-1 bg-muted/60 rounded px-1.5 py-0.5 text-[10px]">
                                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: getCommitteeColor(interest.committeeId) }} />
                                 {getCommitteeName(interest.committeeId).replace(" Committee", "").slice(0, 18)}
                               </div>
@@ -570,16 +444,10 @@ export default function Dashboard() {
                         <td className="px-4 py-2.5">
                           <div className="flex flex-wrap gap-1">
                             {memberAssignments.map((assignment) => (
-                              <div
-                                key={assignment.id}
-                                className="inline-flex items-center gap-1 bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5 text-[10px] font-medium"
-                              >
+                              <div key={assignment.id} className="inline-flex items-center gap-1 bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5 text-[10px] font-medium">
                                 <UserCheck className="w-2.5 h-2.5 text-primary" />
                                 {getCommitteeName(assignment.committeeId).replace(" Committee", "").slice(0, 18)}
-                                <button
-                                  className="ml-0.5 text-destructive hover:text-destructive/80"
-                                  onClick={() => deleteAssignment.mutate({ memberId: member.id, committeeId: assignment.committeeId })}
-                                >
+                                <button className="ml-0.5 text-destructive hover:text-destructive/80" onClick={() => { data.deleteAssignment(member.id, assignment.committeeId); toast({ title: "Assignment removed" }); }}>
                                   <X className="w-2.5 h-2.5" />
                                 </button>
                               </div>
@@ -590,17 +458,7 @@ export default function Dashboard() {
                           <div className="flex items-center justify-center gap-1">
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0"
-                                  onClick={() => {
-                                    setAssignMemberId(member.id);
-                                    setAssignCommitteeId("");
-                                    setAssignDialogOpen(true);
-                                  }}
-                                  data-testid={`button-assign-${member.id}`}
-                                >
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setAssignMemberId(member.id); setAssignCommitteeId(""); setAssignDialogOpen(true); }}>
                                   <ArrowRight className="w-3.5 h-3.5" />
                                 </Button>
                               </TooltipTrigger>
@@ -608,13 +466,7 @@ export default function Dashboard() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                                  onClick={() => deleteMember.mutate(member.id)}
-                                  data-testid={`button-delete-member-${member.id}`}
-                                >
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => { data.deleteMember(member.id); toast({ title: "Member removed" }); }}>
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
                               </TooltipTrigger>
@@ -633,7 +485,7 @@ export default function Dashboard() {
           {/* ASSIGNMENTS TAB */}
           <TabsContent value="assignments" className="space-y-4">
             <p className="text-sm text-muted-foreground mb-4">
-              Drag-and-drop style assignment board. Click the assign button next to any interested member to add them, or use the quick-assign dialog.
+              Assignment board. Click "Assign" next to any interested member to add them, or use the quick-assign dialog from the Members tab.
             </p>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {committees.map((committee) => {
@@ -650,7 +502,6 @@ export default function Dashboard() {
                       </Badge>
                     </div>
                     <CardContent className="p-3 space-y-3">
-                      {/* Assigned Section */}
                       {cAssignments.length > 0 && (
                         <div>
                           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Assigned</p>
@@ -664,12 +515,7 @@ export default function Dashboard() {
                                     <UserCheck className="w-3.5 h-3.5 text-primary" />
                                     <span className="text-xs font-medium">{m.name}</span>
                                   </div>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
-                                    onClick={() => deleteAssignment.mutate({ memberId: m.id, committeeId: committee.id })}
-                                  >
+                                  <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive" onClick={() => { data.deleteAssignment(m.id, committee.id); toast({ title: "Assignment removed" }); }}>
                                     <X className="w-3 h-3" />
                                   </Button>
                                 </div>
@@ -679,7 +525,6 @@ export default function Dashboard() {
                         </div>
                       )}
 
-                      {/* Unassigned Interested */}
                       {unassigned.length > 0 && (
                         <div>
                           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Interested (unassigned)</p>
@@ -690,12 +535,7 @@ export default function Dashboard() {
                               return (
                                 <div key={interest.id} className="flex items-center justify-between bg-card border rounded-md px-2.5 py-1.5 hover:bg-accent/40 transition-colors">
                                   <span className="text-xs">{m.name}</span>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-5 px-1.5 text-primary text-[10px] font-medium"
-                                    onClick={() => createAssignment.mutate({ memberId: m.id, committeeId: committee.id })}
-                                  >
+                                  <Button size="sm" variant="ghost" className="h-5 px-1.5 text-primary text-[10px] font-medium" onClick={() => { data.createAssignment(m.id, committee.id); toast({ title: "Member assigned" }); }}>
                                     Assign <ArrowRight className="w-3 h-3 ml-0.5" />
                                   </Button>
                                 </div>
@@ -720,44 +560,23 @@ export default function Dashboard() {
       {/* Add Committee Dialog */}
       <Dialog open={addCommitteeOpen} onOpenChange={setAddCommitteeOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Committee</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Add New Committee</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div>
               <label className="text-sm font-medium mb-1.5 block">Committee Name</label>
-              <Input
-                value={addCommitteeName}
-                onChange={(e) => setAddCommitteeName(e.target.value)}
-                placeholder="e.g., CalWORKs Policy Updates Committee"
-                data-testid="input-new-committee-name"
-              />
+              <Input value={addCommitteeName} onChange={(e) => setAddCommitteeName(e.target.value)} placeholder="e.g., CalWORKs Policy Updates Committee" data-testid="input-new-committee-name" />
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Color</label>
               <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={addCommitteeColor}
-                  onChange={(e) => setAddCommitteeColor(e.target.value)}
-                  className="w-10 h-10 rounded border cursor-pointer"
-                  data-testid="input-new-committee-color"
-                />
-                <Input
-                  value={addCommitteeColor}
-                  onChange={(e) => setAddCommitteeColor(e.target.value)}
-                  className="w-28 font-mono text-xs"
-                />
+                <input type="color" value={addCommitteeColor} onChange={(e) => setAddCommitteeColor(e.target.value)} className="w-10 h-10 rounded border cursor-pointer" />
+                <Input value={addCommitteeColor} onChange={(e) => setAddCommitteeColor(e.target.value)} className="w-28 font-mono text-xs" />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button
-              onClick={() => createCommittee.mutate({ name: addCommitteeName, color: addCommitteeColor })}
-              disabled={!addCommitteeName.trim() || createCommittee.isPending}
-              data-testid="button-submit-committee"
-            >
-              {createCommittee.isPending ? "Creating..." : "Create Committee"}
+            <Button onClick={() => { data.createCommittee(addCommitteeName, addCommitteeColor); setAddCommitteeOpen(false); setAddCommitteeName(""); toast({ title: "Committee created" }); }} disabled={!addCommitteeName.trim()} data-testid="button-submit-committee">
+              Create Committee
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -766,36 +585,20 @@ export default function Dashboard() {
       {/* Add Member Dialog */}
       <Dialog open={addMemberOpen} onOpenChange={setAddMemberOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Staff Member</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Add New Staff Member</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div>
               <label className="text-sm font-medium mb-1.5 block">Full Name</label>
-              <Input
-                value={newMemberName}
-                onChange={(e) => setNewMemberName(e.target.value)}
-                placeholder="Jane Doe"
-                data-testid="input-new-member-name"
-              />
+              <Input value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} placeholder="Jane Doe" data-testid="input-new-member-name" />
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Email</label>
-              <Input
-                value={newMemberEmail}
-                onChange={(e) => setNewMemberEmail(e.target.value)}
-                placeholder="jdoe@sdccd.edu"
-                data-testid="input-new-member-email"
-              />
+              <Input value={newMemberEmail} onChange={(e) => setNewMemberEmail(e.target.value)} placeholder="jdoe@sdccd.edu" data-testid="input-new-member-email" />
             </div>
           </div>
           <DialogFooter>
-            <Button
-              onClick={() => createMember.mutate({ name: newMemberName, email: newMemberEmail, timeRating: 5, comments: "" })}
-              disabled={!newMemberName.trim() || !newMemberEmail.trim() || createMember.isPending}
-              data-testid="button-submit-member"
-            >
-              {createMember.isPending ? "Adding..." : "Add Member"}
+            <Button onClick={() => { data.createMember(newMemberName, newMemberEmail, 5, ""); setAddMemberOpen(false); setNewMemberName(""); setNewMemberEmail(""); toast({ title: "Member added" }); }} disabled={!newMemberName.trim() || !newMemberEmail.trim()} data-testid="button-submit-member">
+              Add Member
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -805,35 +608,26 @@ export default function Dashboard() {
       <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              Assign {assignMemberId ? members.find((m) => m.id === assignMemberId)?.name : ""} to Committee
-            </DialogTitle>
+            <DialogTitle>Assign {assignMemberId ? members.find((m) => m.id === assignMemberId)?.name : ""} to Committee</DialogTitle>
           </DialogHeader>
           <div className="py-2">
             <Select value={assignCommitteeId} onValueChange={setAssignCommitteeId}>
-              <SelectTrigger data-testid="select-assign-committee">
-                <SelectValue placeholder="Select a committee" />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select a committee" /></SelectTrigger>
               <SelectContent>
                 {committees.map((c) => (
-                  <SelectItem key={c.id} value={String(c.id)}>
-                    {c.name}
-                  </SelectItem>
+                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <DialogFooter>
-            <Button
-              onClick={() => {
-                if (assignMemberId && assignCommitteeId) {
-                  createAssignment.mutate({ memberId: assignMemberId, committeeId: parseInt(assignCommitteeId) });
-                  setAssignDialogOpen(false);
-                }
-              }}
-              disabled={!assignCommitteeId}
-              data-testid="button-submit-assignment"
-            >
+            <Button onClick={() => {
+              if (assignMemberId && assignCommitteeId) {
+                data.createAssignment(assignMemberId, parseInt(assignCommitteeId));
+                setAssignDialogOpen(false);
+                toast({ title: "Member assigned" });
+              }
+            }} disabled={!assignCommitteeId}>
               Assign
             </Button>
           </DialogFooter>
@@ -846,33 +640,20 @@ export default function Dashboard() {
           {memberDetail && (
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" /> {memberDetail.name}
-                </DialogTitle>
+                <DialogTitle className="flex items-center gap-2"><Users className="w-5 h-5" /> {memberDetail.name}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Mail className="w-4 h-4" />
-                  {memberDetail.email}
-                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground"><Mail className="w-4 h-4" /> {memberDetail.email}</div>
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="w-4 h-4 text-muted-foreground" />
                   Availability: <span className="font-semibold">{memberDetail.timeRating}/10</span>
                   <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${memberDetail.timeRating * 10}%`,
-                        backgroundColor: memberDetail.timeRating >= 8 ? "#437A22" : memberDetail.timeRating >= 5 ? "#d19900" : "#A13544",
-                      }}
-                    />
+                    <div className="h-full rounded-full" style={{ width: `${memberDetail.timeRating * 10}%`, backgroundColor: memberDetail.timeRating >= 8 ? "#437A22" : memberDetail.timeRating >= 5 ? "#d19900" : "#A13544" }} />
                   </div>
                 </div>
                 {memberDetail.comments && (
                   <div>
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                      <MessageSquare className="w-3.5 h-3.5" /> Comments
-                    </div>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1"><MessageSquare className="w-3.5 h-3.5" /> Comments</div>
                     <p className="text-sm bg-muted/50 rounded-lg p-3">{memberDetail.comments}</p>
                   </div>
                 )}
@@ -883,31 +664,17 @@ export default function Dashboard() {
                       <div key={interest.id} className="flex items-center gap-1.5 bg-muted/60 rounded-md px-2.5 py-1 text-xs">
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getCommitteeColor(interest.committeeId) }} />
                         {getCommitteeName(interest.committeeId)}
-                        <button
-                          className="ml-1 text-destructive/60 hover:text-destructive"
-                          onClick={() => deleteInterest.mutate({ memberId: memberDetail.id, committeeId: interest.committeeId })}
-                        >
+                        <button className="ml-1 text-destructive/60 hover:text-destructive" onClick={() => data.deleteInterest(memberDetail.id, interest.committeeId)}>
                           <X className="w-3 h-3" />
                         </button>
                       </div>
                     ))}
-                    {/* Add interest button */}
-                    <Select
-                      onValueChange={(val) => {
-                        createInterest.mutate({ memberId: memberDetail.id, committeeId: parseInt(val) });
-                      }}
-                    >
-                      <SelectTrigger className="h-7 w-auto text-xs border-dashed">
-                        <Plus className="w-3 h-3 mr-1" /> Add
-                      </SelectTrigger>
+                    <Select onValueChange={(val) => data.createInterest(memberDetail.id, parseInt(val))}>
+                      <SelectTrigger className="h-7 w-auto text-xs border-dashed"><Plus className="w-3 h-3 mr-1" /> Add</SelectTrigger>
                       <SelectContent>
-                        {committees
-                          .filter((c) => !getMemberInterests(memberDetail.id).some((i) => i.committeeId === c.id))
-                          .map((c) => (
-                            <SelectItem key={c.id} value={String(c.id)}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
+                        {committees.filter((c) => !getMemberInterests(memberDetail.id).some((i) => i.committeeId === c.id)).map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -919,30 +686,17 @@ export default function Dashboard() {
                       <div key={assignment.id} className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-md px-2.5 py-1 text-xs font-medium">
                         <UserCheck className="w-3 h-3 text-primary" />
                         {getCommitteeName(assignment.committeeId)}
-                        <button
-                          className="ml-1 text-destructive/60 hover:text-destructive"
-                          onClick={() => deleteAssignment.mutate({ memberId: memberDetail.id, committeeId: assignment.committeeId })}
-                        >
+                        <button className="ml-1 text-destructive/60 hover:text-destructive" onClick={() => data.deleteAssignment(memberDetail.id, assignment.committeeId)}>
                           <X className="w-3 h-3" />
                         </button>
                       </div>
                     ))}
-                    <Select
-                      onValueChange={(val) => {
-                        createAssignment.mutate({ memberId: memberDetail.id, committeeId: parseInt(val) });
-                      }}
-                    >
-                      <SelectTrigger className="h-7 w-auto text-xs border-dashed">
-                        <Plus className="w-3 h-3 mr-1" /> Assign
-                      </SelectTrigger>
+                    <Select onValueChange={(val) => { data.createAssignment(memberDetail.id, parseInt(val)); toast({ title: "Member assigned" }); }}>
+                      <SelectTrigger className="h-7 w-auto text-xs border-dashed"><Plus className="w-3 h-3 mr-1" /> Assign</SelectTrigger>
                       <SelectContent>
-                        {committees
-                          .filter((c) => !getMemberAssignments(memberDetail.id).some((a) => a.committeeId === c.id))
-                          .map((c) => (
-                            <SelectItem key={c.id} value={String(c.id)}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
+                        {committees.filter((c) => !getMemberAssignments(memberDetail.id).some((a) => a.committeeId === c.id)).map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
