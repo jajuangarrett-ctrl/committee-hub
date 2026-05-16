@@ -25,7 +25,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [searchTerm, setSearchTerm] = useState("");
   const [addCommitteeName, setAddCommitteeName] = useState("");
-  const [addCommitteeColor, setAddCommitteeColor] = useState("#20808D");
+  const [addCommitteeColor, setAddCommitteeColor] = useState("#f97316");
   const [addCommitteeOpen, setAddCommitteeOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
@@ -90,21 +90,26 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background" data-testid="dashboard-root">
       {/* Header */}
-      <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <header className="sticky top-0 z-20 border-b border-black/15 bg-secondary text-secondary-foreground shadow-sm backdrop-blur">
         <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-label="Committee Hub logo">
               <rect x="2" y="2" width="28" height="28" rx="6" stroke="currentColor" strokeWidth="2"/>
               <circle cx="16" cy="12" r="4" fill="hsl(var(--primary))"/>
-              <circle cx="9" cy="22" r="3" fill="hsl(var(--primary))" opacity="0.7"/>
-              <circle cx="23" cy="22" r="3" fill="hsl(var(--primary))" opacity="0.7"/>
+              <circle cx="9" cy="22" r="3" fill="hsl(var(--primary))" opacity="0.8"/>
+              <circle cx="23" cy="22" r="3" fill="hsl(var(--primary))" opacity="0.8"/>
               <line x1="16" y1="16" x2="9" y2="19" stroke="hsl(var(--primary))" strokeWidth="1.5"/>
               <line x1="16" y1="16" x2="23" y2="19" stroke="hsl(var(--primary))" strokeWidth="1.5"/>
             </svg>
             <h1 className="text-base font-semibold tracking-tight" data-testid="text-app-title">Committee Hub</h1>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setAddMemberOpen(true)} data-testid="button-add-member">
+            {data.saveStatus !== "saved" && (
+              <span className="hidden sm:inline text-xs text-secondary-foreground/70">
+                {data.saveStatus === "saving" ? "Saving..." : data.saveStatus === "loading" ? "Loading..." : "Local fallback"}
+              </span>
+            )}
+            <Button size="sm" variant="outline" className="border-primary/70 bg-transparent text-secondary-foreground hover:bg-primary hover:text-primary-foreground" onClick={() => setAddMemberOpen(true)} data-testid="button-add-member">
               <UserPlus className="w-4 h-4 mr-1.5" /> Add Member
             </Button>
             <Button size="sm" onClick={() => setAddCommitteeOpen(true)} data-testid="button-add-committee">
@@ -242,8 +247,8 @@ export default function Dashboard() {
                     <RechartsTooltip
                       contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 13 }}
                     />
-                    <Bar dataKey="interested" name="Interested" fill="#BCE2E7" radius={[4, 4, 0, 0]} maxBarSize={36} />
-                    <Bar dataKey="assigned" name="Assigned" fill="#20808D" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                    <Bar dataKey="interested" name="Interested" fill="#fed7aa" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                    <Bar dataKey="assigned" name="Assigned" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={36} />
                     <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                   </BarChart>
                 </ResponsiveContainer>

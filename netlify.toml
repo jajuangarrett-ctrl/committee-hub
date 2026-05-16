@@ -2,6 +2,9 @@
   command = "npm run build:static"
   publish = "dist/public"
 
+[functions]
+  directory = "netlify/functions"
+
 [build.environment]
   NODE_VERSION = "20"
 
