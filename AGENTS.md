@@ -185,9 +185,9 @@ Avoid reintroducing the prior teal-heavy palette.
 - Set Netlify production `ADMIN_PASSWORD` to `fjg`.
 - Verified public reads return `200`, missing admin password returns `401`, and `fjg` succeeds.
 
-## Vault/Cloud Notes
+## Vault/Claude Notes
 
-No `cloud.md` file was found in this project checkout during creation of this file.
+No project-level `CLAUDE.md` file existed before this documentation pass. A project-level `CLAUDE.md` has now been added and should be kept aligned with this file.
 
 Relevant general vault preference found in `CLAUDE.md`:
 
