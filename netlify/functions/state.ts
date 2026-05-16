@@ -13,7 +13,15 @@ export default async (req: Request) => {
     return json(state);
   }
 
+  if (req.method === "POST") {
+    return isAdmin(req) ? json({ ok: true }) : json({ ok: false }, 401);
+  }
+
   if (req.method === "PUT") {
+    if (!isAdmin(req)) {
+      return json({ error: "Admin password required" }, 401);
+    }
+
     const body = await req.json();
     const state = normalizeDashboardState(body);
     await store.setJSON(STATE_KEY, state);
@@ -25,11 +33,17 @@ export default async (req: Request) => {
 
 export const config = {
   path: "/api/state",
-  method: ["GET", "PUT"],
+  method: ["GET", "POST", "PUT"],
 };
 
-function json(body: unknown) {
+function isAdmin(req: Request) {
+  const password = Netlify.env.get("ADMIN_PASSWORD") || "fjg";
+  return req.headers.get("x-admin-password") === password;
+}
+
+function json(body: unknown, status = 200) {
   return Response.json(body, {
+    status,
     headers: {
       "Cache-Control": "no-store",
     },

@@ -14,7 +14,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell, 
 import {
   Users, Plus, Trash2, ArrowRight, UserPlus, Building2,
   Mail, Clock, MessageSquare, X, Edit2, Check, Search,
-  ChevronDown, ChevronUp, LayoutDashboard, UserCheck
+  ChevronDown, ChevronUp, LayoutDashboard, UserCheck, Lock, LockOpen
 } from "lucide-react";
 import { PerplexityAttribution } from "@/components/PerplexityAttribution";
 
@@ -37,6 +37,8 @@ export default function Dashboard() {
   const [assignMemberId, setAssignMemberId] = useState<number | null>(null);
   const [assignCommitteeId, setAssignCommitteeId] = useState<string>("");
   const [expandedCommittee, setExpandedCommittee] = useState<number | null>(null);
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
 
   const { committees, members, interests, assignments } = data;
 
@@ -86,6 +88,12 @@ export default function Dashboard() {
   }, [committees, interests]);
 
   const memberDetail = memberDetailId ? members.find((m) => m.id === memberDetailId) : null;
+  const requireAdmin = () => {
+    if (data.isAdmin) return true;
+    setAdminDialogOpen(true);
+    toast({ title: "Admin password required" });
+    return false;
+  };
 
   return (
     <div className="min-h-screen bg-background" data-testid="dashboard-root">
@@ -104,15 +112,32 @@ export default function Dashboard() {
             <h1 className="text-base font-semibold tracking-tight" data-testid="text-app-title">Committee Hub</h1>
           </div>
           <div className="flex items-center gap-2">
-            {data.saveStatus !== "saved" && (
+            {data.saveStatus !== "saved" && data.isAdmin && (
               <span className="hidden sm:inline text-xs text-secondary-foreground/70">
                 {data.saveStatus === "saving" ? "Saving..." : data.saveStatus === "loading" ? "Loading..." : "Local fallback"}
               </span>
             )}
-            <Button size="sm" variant="outline" className="border-primary/70 bg-transparent text-secondary-foreground hover:bg-primary hover:text-primary-foreground" onClick={() => setAddMemberOpen(true)} data-testid="button-add-member">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-primary/70 bg-transparent text-secondary-foreground hover:bg-primary hover:text-primary-foreground"
+              onClick={() => {
+                if (data.isAdmin) {
+                  data.lockAdmin();
+                  toast({ title: "Admin locked" });
+                } else {
+                  setAdminDialogOpen(true);
+                }
+              }}
+              data-testid="button-admin"
+            >
+              {data.isAdmin ? <LockOpen className="w-4 h-4 mr-1.5" /> : <Lock className="w-4 h-4 mr-1.5" />}
+              {data.isAdmin ? "Admin On" : "Admin"}
+            </Button>
+            <Button size="sm" variant="outline" className="border-primary/70 bg-transparent text-secondary-foreground hover:bg-primary hover:text-primary-foreground" onClick={() => { if (requireAdmin()) setAddMemberOpen(true); }} data-testid="button-add-member">
               <UserPlus className="w-4 h-4 mr-1.5" /> Add Member
             </Button>
-            <Button size="sm" onClick={() => setAddCommitteeOpen(true)} data-testid="button-add-committee">
+            <Button size="sm" onClick={() => { if (requireAdmin()) setAddCommitteeOpen(true); }} data-testid="button-add-committee">
               <Plus className="w-4 h-4 mr-1.5" /> Add Committee
             </Button>
           </div>
@@ -283,6 +308,7 @@ export default function Dashboard() {
                               size="sm"
                               variant="ghost"
                               onClick={() => {
+                                if (!requireAdmin()) return;
                                 data.updateCommittee(committee.id, { name: editingCommitteeName });
                                 setEditingCommittee(null);
                                 toast({ title: "Committee renamed" });
@@ -304,7 +330,7 @@ export default function Dashboard() {
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingCommittee(committee.id); setEditingCommitteeName(committee.name); }}>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { if (!requireAdmin()) return; setEditingCommittee(committee.id); setEditingCommitteeName(committee.name); }}>
                                 <Edit2 className="w-3.5 h-3.5" />
                               </Button>
                             </TooltipTrigger>
@@ -312,7 +338,7 @@ export default function Dashboard() {
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => { data.deleteCommittee(committee.id); toast({ title: "Committee deleted" }); }}>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => { if (!requireAdmin()) return; data.deleteCommittee(committee.id); toast({ title: "Committee deleted" }); }}>
                                 <Trash2 className="w-3.5 h-3.5" />
                               </Button>
                             </TooltipTrigger>
@@ -342,7 +368,7 @@ export default function Dashboard() {
                                     {isAssigned ? (
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-destructive" onClick={() => { data.deleteAssignment(member.id, committee.id); toast({ title: "Assignment removed" }); }}>
+                                          <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-destructive" onClick={() => { if (!requireAdmin()) return; data.deleteAssignment(member.id, committee.id); toast({ title: "Assignment removed" }); }}>
                                             <X className="w-3 h-3" />
                                           </Button>
                                         </TooltipTrigger>
@@ -351,7 +377,7 @@ export default function Dashboard() {
                                     ) : (
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-primary" onClick={() => { data.createAssignment(member.id, committee.id); toast({ title: "Member assigned" }); }}>
+                                          <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-primary" onClick={() => { if (!requireAdmin()) return; data.createAssignment(member.id, committee.id); toast({ title: "Member assigned" }); }}>
                                             <ArrowRight className="w-3 h-3" />
                                           </Button>
                                         </TooltipTrigger>
@@ -378,7 +404,7 @@ export default function Dashboard() {
                                   <div key={assignment.id} className="flex items-center gap-2 border border-primary/30 bg-primary/10 rounded-lg px-3 py-1.5 text-sm">
                                     <UserCheck className="w-3.5 h-3.5 text-primary" />
                                     <span className="font-medium">{member.name}</span>
-                                    <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-destructive" onClick={() => { data.deleteAssignment(member.id, committee.id); toast({ title: "Assignment removed" }); }}>
+                                    <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-destructive" onClick={() => { if (!requireAdmin()) return; data.deleteAssignment(member.id, committee.id); toast({ title: "Assignment removed" }); }}>
                                       <X className="w-3 h-3" />
                                     </Button>
                                   </div>
@@ -452,7 +478,7 @@ export default function Dashboard() {
                               <div key={assignment.id} className="inline-flex items-center gap-1 bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5 text-[10px] font-medium">
                                 <UserCheck className="w-2.5 h-2.5 text-primary" />
                                 {getCommitteeName(assignment.committeeId).replace(" Committee", "").slice(0, 18)}
-                                <button className="ml-0.5 text-destructive hover:text-destructive/80" onClick={() => { data.deleteAssignment(member.id, assignment.committeeId); toast({ title: "Assignment removed" }); }}>
+                                <button className="ml-0.5 text-destructive hover:text-destructive/80" onClick={() => { if (!requireAdmin()) return; data.deleteAssignment(member.id, assignment.committeeId); toast({ title: "Assignment removed" }); }}>
                                   <X className="w-2.5 h-2.5" />
                                 </button>
                               </div>
@@ -463,7 +489,7 @@ export default function Dashboard() {
                           <div className="flex items-center justify-center gap-1">
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setAssignMemberId(member.id); setAssignCommitteeId(""); setAssignDialogOpen(true); }}>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { if (!requireAdmin()) return; setAssignMemberId(member.id); setAssignCommitteeId(""); setAssignDialogOpen(true); }}>
                                   <ArrowRight className="w-3.5 h-3.5" />
                                 </Button>
                               </TooltipTrigger>
@@ -471,7 +497,7 @@ export default function Dashboard() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => { data.deleteMember(member.id); toast({ title: "Member removed" }); }}>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => { if (!requireAdmin()) return; data.deleteMember(member.id); toast({ title: "Member removed" }); }}>
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
                               </TooltipTrigger>
@@ -520,7 +546,7 @@ export default function Dashboard() {
                                     <UserCheck className="w-3.5 h-3.5 text-primary" />
                                     <span className="text-xs font-medium">{m.name}</span>
                                   </div>
-                                  <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive" onClick={() => { data.deleteAssignment(m.id, committee.id); toast({ title: "Assignment removed" }); }}>
+                                  <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive" onClick={() => { if (!requireAdmin()) return; data.deleteAssignment(m.id, committee.id); toast({ title: "Assignment removed" }); }}>
                                     <X className="w-3 h-3" />
                                   </Button>
                                 </div>
@@ -540,7 +566,7 @@ export default function Dashboard() {
                               return (
                                 <div key={interest.id} className="flex items-center justify-between bg-card border rounded-md px-2.5 py-1.5 hover:bg-accent/40 transition-colors">
                                   <span className="text-xs">{m.name}</span>
-                                  <Button size="sm" variant="ghost" className="h-5 px-1.5 text-primary text-[10px] font-medium" onClick={() => { data.createAssignment(m.id, committee.id); toast({ title: "Member assigned" }); }}>
+                                  <Button size="sm" variant="ghost" className="h-5 px-1.5 text-primary text-[10px] font-medium" onClick={() => { if (!requireAdmin()) return; data.createAssignment(m.id, committee.id); toast({ title: "Member assigned" }); }}>
                                     Assign <ArrowRight className="w-3 h-3 ml-0.5" />
                                   </Button>
                                 </div>
@@ -562,6 +588,43 @@ export default function Dashboard() {
         </Tabs>
       </main>
 
+      {/* Admin Dialog */}
+      <Dialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Admin Access</DialogTitle></DialogHeader>
+          <form
+            className="space-y-4 py-2"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const ok = await data.unlockAdmin(adminPassword);
+              if (ok) {
+                setAdminDialogOpen(false);
+                setAdminPassword("");
+                toast({ title: "Admin unlocked" });
+              } else {
+                toast({ title: "Incorrect password", variant: "destructive" });
+              }
+            }}
+          >
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Password</label>
+              <Input
+                type="password"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                autoFocus
+                data-testid="input-admin-password"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={!adminPassword.trim()} data-testid="button-submit-admin">
+                Unlock
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Add Committee Dialog */}
       <Dialog open={addCommitteeOpen} onOpenChange={setAddCommitteeOpen}>
         <DialogContent>
@@ -580,7 +643,7 @@ export default function Dashboard() {
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => { data.createCommittee(addCommitteeName, addCommitteeColor); setAddCommitteeOpen(false); setAddCommitteeName(""); toast({ title: "Committee created" }); }} disabled={!addCommitteeName.trim()} data-testid="button-submit-committee">
+            <Button onClick={() => { if (!requireAdmin()) return; data.createCommittee(addCommitteeName, addCommitteeColor); setAddCommitteeOpen(false); setAddCommitteeName(""); toast({ title: "Committee created" }); }} disabled={!addCommitteeName.trim()} data-testid="button-submit-committee">
               Create Committee
             </Button>
           </DialogFooter>
@@ -602,7 +665,7 @@ export default function Dashboard() {
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => { data.createMember(newMemberName, newMemberEmail, 5, ""); setAddMemberOpen(false); setNewMemberName(""); setNewMemberEmail(""); toast({ title: "Member added" }); }} disabled={!newMemberName.trim() || !newMemberEmail.trim()} data-testid="button-submit-member">
+            <Button onClick={() => { if (!requireAdmin()) return; data.createMember(newMemberName, newMemberEmail, 5, ""); setAddMemberOpen(false); setNewMemberName(""); setNewMemberEmail(""); toast({ title: "Member added" }); }} disabled={!newMemberName.trim() || !newMemberEmail.trim()} data-testid="button-submit-member">
               Add Member
             </Button>
           </DialogFooter>
@@ -627,6 +690,7 @@ export default function Dashboard() {
           </div>
           <DialogFooter>
             <Button onClick={() => {
+              if (!requireAdmin()) return;
               if (assignMemberId && assignCommitteeId) {
                 data.createAssignment(assignMemberId, parseInt(assignCommitteeId));
                 setAssignDialogOpen(false);
@@ -669,12 +733,12 @@ export default function Dashboard() {
                       <div key={interest.id} className="flex items-center gap-1.5 bg-muted/60 rounded-md px-2.5 py-1 text-xs">
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getCommitteeColor(interest.committeeId) }} />
                         {getCommitteeName(interest.committeeId)}
-                        <button className="ml-1 text-destructive/60 hover:text-destructive" onClick={() => data.deleteInterest(memberDetail.id, interest.committeeId)}>
+                        <button className="ml-1 text-destructive/60 hover:text-destructive" onClick={() => { if (!requireAdmin()) return; data.deleteInterest(memberDetail.id, interest.committeeId); }}>
                           <X className="w-3 h-3" />
                         </button>
                       </div>
                     ))}
-                    <Select onValueChange={(val) => data.createInterest(memberDetail.id, parseInt(val))}>
+                    <Select onValueChange={(val) => { if (!requireAdmin()) return; data.createInterest(memberDetail.id, parseInt(val)); }}>
                       <SelectTrigger className="h-7 w-auto text-xs border-dashed"><Plus className="w-3 h-3 mr-1" /> Add</SelectTrigger>
                       <SelectContent>
                         {committees.filter((c) => !getMemberInterests(memberDetail.id).some((i) => i.committeeId === c.id)).map((c) => (
@@ -691,12 +755,12 @@ export default function Dashboard() {
                       <div key={assignment.id} className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-md px-2.5 py-1 text-xs font-medium">
                         <UserCheck className="w-3 h-3 text-primary" />
                         {getCommitteeName(assignment.committeeId)}
-                        <button className="ml-1 text-destructive/60 hover:text-destructive" onClick={() => data.deleteAssignment(memberDetail.id, assignment.committeeId)}>
+                        <button className="ml-1 text-destructive/60 hover:text-destructive" onClick={() => { if (!requireAdmin()) return; data.deleteAssignment(memberDetail.id, assignment.committeeId); }}>
                           <X className="w-3 h-3" />
                         </button>
                       </div>
                     ))}
-                    <Select onValueChange={(val) => { data.createAssignment(memberDetail.id, parseInt(val)); toast({ title: "Member assigned" }); }}>
+                    <Select onValueChange={(val) => { if (!requireAdmin()) return; data.createAssignment(memberDetail.id, parseInt(val)); toast({ title: "Member assigned" }); }}>
                       <SelectTrigger className="h-7 w-auto text-xs border-dashed"><Plus className="w-3 h-3 mr-1" /> Assign</SelectTrigger>
                       <SelectContent>
                         {committees.filter((c) => !getMemberAssignments(memberDetail.id).some((a) => a.committeeId === c.id)).map((c) => (
